@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strong Rider Platform</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #d1f0f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 360px;
+      text-align: center;
+    }
+    .btn {
+      background-color: #46a3d3;
+      color: white;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    .link {
+      color: #46a3d3;
+      cursor: pointer;
+      margin-top: 10px;
+      display: block;
+    }
+    input {
+      width: 90%;
+      margin: 8px 0;
+      padding: 8px;
+    }
+    canvas {
+      max-width: 100%;
+      height: 200px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="screen" class="container white-box"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AlzaSyD8x43I3COmVy0z4ryumST3s-HVX9jVGto",
+      authDomain: "strong-rider-463113-f6.firebaseapp.com",
+      projectId: "strong-rider-463113-f6",
+      storageBucket: "strong-rider-463113-f6.appspot.com",
+      messagingSenderId: "640925169691",
+      appId: "your-app-id-here"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let isLoginMode = true;
+
+    function showAuthForm() {
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2>${isLoginMode ? 'Log In' : 'Register'}</h2>
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <button class="btn" onclick="handleAuth()">${isLoginMode ? 'Log In' : 'Register'}</button>
+        <span class="link" onclick="toggleAuthMode()">
+          ${isLoginMode ? "Don't have an account? Register" : 'Already have an account? Log In'}
+        </span>
+      `;
+    }
+
+    function toggleAuthMode() {
+      isLoginMode = !isLoginMode;
+      showAuthForm();
+    }
+
+    async function handleAuth() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!email || !password) {
+        alert('Please fill out all fields');
+        return;
+      }
+
+      try {
+        if (isLoginMode) {
+          const userCredential = await auth.signInWithEmailAndPassword(email, password);
+          currentUser = userCredential.user;
+          showWelcome();
+        } else {
+          const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+          await db.collection("users").doc(userCredential.user.uid).set({ balance: 0 });
+          alert('Registration successful! You can now log in.');
+          isLoginMode = true;
+          showAuthForm();
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function showWelcome() {
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2 style="color:#46a3d3;">Welcome to Strong Rider</h2>
+        <p>You're now part of something real.</p>
+        <button class="btn" onclick="showExplore()">🚀 Explore Platform</button>
+        <button class="btn" onclick="logout()">🔐 Log Out</button>
+      `;
+    }
+
+    function showExplore() {
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2>Explore the Strong Rider Platform</h2>
+        <div><strong>💰 Investment Plans</strong><p>Choose how to grow your wealth.</p></div>
+        <div><strong>📈 Investment Charts</strong><p>View your earnings trends.</p></div>
+        <div><strong>💹 Staking</strong><p>Simulate earnings with auto compounding.</p></div>
+        <div><strong>👥 Referrals</strong><p>Invite and earn rewards.</p></div>
+        <button class="btn" onclick="showDashboard()">📊 Go to Dashboard</button>
+        <button class="btn" onclick="logout()">🔐 Log Out</button>
+      `;
+    }
+
+    async function showDashboard() {
+      const user = auth.currentUser;
+      const doc = await db.collection("users").doc(user.uid).get();
+      const balance = doc.exists ? doc.data().balance : 0;
+
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2 style="color:#46a3d3;">📊 Dashboard</h2>
+        <p>Balance: <strong>$${balance.toFixed(2)}</strong></p>
+        <canvas id="chart"></canvas>
+        <button class="btn" onclick="showDeposit()">➕ Deposit</button>
+        <button class="btn" onclick="showWithdraw()">💸 Withdraw</button>
+        <button class="btn" onclick="showExplore()">⬅️ Back to Explore</button>
+        <button class="btn" onclick="logout()">🔐 Log Out</button>
+      `;
+
+      new Chart(document.getElementById("chart"), {
+        type: 'line',
+        data: {
+          labels: ["Day 1", "Day 2", "Day 3", "Day 4"],
+          datasets: [{
+            label: 'Earnings ($)',
+            data: [0, balance * 0.3, balance * 0.6, balance],
+            borderColor: '#46a3d3',
+            fill: false
+          }]
+        }
+      });
+    }
+
+    function showDeposit() {
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2>Deposit Funds</h2>
+        <div><p>Choose a token and scan the QR or copy address.</p></div>
+        <h3>BTC</h3>
+        <img src="https://chart.googleapis.com/chart?cht=qr&chl=bc1qvjmyhlucfh5mmtunfs8dyweasykmt9ejcnqhf5&chs=150x150" />
+        <p>bc1qvjmyhlucfh5mmtunfs8dyweasykmt9ejcnqhf5</p>
+        <h3>ETH / USDT / BNB</h3>
+        <img src="https://chart.googleapis.com/chart?cht=qr&chl=0x3A122801806304182BcB2761485Ff4237C6232f1&chs=150x150" />
+        <p>0x3A122801806304182BcB2761485Ff4237C6232f1</p>
+        <p>Manual verification by admin will update your balance.</p>
+        <button class="btn" onclick="showDashboard()">🔙 Back to Dashboard</button>
+      `;
+    }
+
+    function showWithdraw() {
+      const screen = document.getElementById('screen');
+      screen.innerHTML = `
+        <h2>Withdraw Request</h2>
+        <input type="text" placeholder="Your wallet address" />
+        <input type="number" placeholder="Amount" />
+        <button class="btn">Submit Request</button>
+        <p>Withdrawals are processed manually by the platform admin.</p>
+        <button class="btn" onclick="showDashboard()">🔙 Back to Dashboard</button>
+      `;
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        showAuthForm();
+      });
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        showWelcome();
+      } else {
+        showAuthForm();
+      }
+    });
+  </script>
+</body>
+</html>
